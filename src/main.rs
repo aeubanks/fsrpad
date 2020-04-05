@@ -1,8 +1,18 @@
+use gnuplot::*;
 use i2cdev::core::*;
 use i2cdev::linux::{LinuxI2CDevice, LinuxI2CError};
 use std::{thread, time};
 
 const ADDR: u16 = 0x48;
+
+fn plot(times: &Vec<u64>, vals: &Vec<u16>) {
+    let mut fg = Figure::new();
+    fg.axes2d()
+        .set_x_label("time", &[])
+        .set_y_label("reading", &[])
+        .lines(times, vals, &[]);
+    fg.save_to_png("/tmp/readings.png", 640, 480).unwrap();
+}
 
 fn main() -> Result<(), LinuxI2CError> {
     let mut dev = LinuxI2CDevice::new("/dev/i2c-1", ADDR)?;
@@ -34,18 +44,24 @@ fn main() -> Result<(), LinuxI2CError> {
     // [4-0]: comparator stuff (don't care)
     dev.smbus_write_word_data(1, 0b0_100_000_0_111_00000).unwrap();
 
-    //let mut vals = Vec::new();
+    let mut times = Vec::new();
+    let mut vals = Vec::new();
 
-    let iterations = 200;
+    let iterations = 500;
     let rate = time::Duration::from_millis(10);
+
+    let start = time::Instant::now();
 
     for _ in 0..iterations {
         let response = dev.smbus_read_word_data(0).unwrap();
-        //vals.push(response);
+        times.push(start.elapsed().as_millis() as u64);
+        vals.push(response);
 
         println!("Reading: {:?}", response);
         thread::sleep(rate);
     }
+
+    plot(&times, &vals);
 
     Ok(())
 }

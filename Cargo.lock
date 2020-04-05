@@ -28,7 +28,17 @@ checksum = "4785bdd1c96b2a846b2bd7cc02e86b6b3dbf14e7e53446c4f54c92a361040822"
 name = "fsrpad"
 version = "0.1.0"
 dependencies = [
+ "gnuplot",
  "i2cdev",
+]
+
+[[package]]
+name = "gnuplot"
+version = "0.0.34"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0cf76f223ab89c79a3d39f2701556b2ef43482fd8125c86e6bbb21251470075e"
+dependencies = [
+ "byteorder",
 ]
 
 [[package]]
