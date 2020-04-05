@@ -42,7 +42,7 @@ fn main() -> Result<(), LinuxI2CError> {
     //   110: 475
     //   111: 860
     // [4-0]: comparator stuff (don't care)
-    dev.smbus_write_word_data(1, 0b0_100_000_0_111_00000).unwrap();
+    dev.smbus_write_word_data(1, 0b0_100_000_0_111_00000)?;
 
     let mut times = Vec::new();
     let mut vals = Vec::new();
