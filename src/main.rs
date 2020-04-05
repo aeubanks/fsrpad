@@ -19,7 +19,7 @@ fn main() -> Result<(), LinuxI2CError> {
 
     // http://www.ti.com/lit/ds/symlink/ads1114.pdf
     // [15]: 0 (only useful when sleeping, which we don't use)
-    // [14-12]: configuring A0-A3, 000 for measuring A0
+    // [14-12]: configuring A0-A3, 100 for measuring A0
     // [11-9]:
     //   000: +/- 6.144V
     //   001: +/- 4.096V
@@ -42,7 +42,9 @@ fn main() -> Result<(), LinuxI2CError> {
     //   110: 475
     //   111: 860
     // [4-0]: comparator stuff (don't care)
-    dev.smbus_write_word_data(1, 0b0_100_000_0_111_00000)?;
+    //
+    // bit order is weird: [7-0,15-8]
+    dev.smbus_write_word_data(1, 0b111_00000__0_100_000_0)?;
 
     let mut times = Vec::new();
     let mut vals = Vec::new();
