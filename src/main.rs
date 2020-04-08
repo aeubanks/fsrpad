@@ -5,7 +5,10 @@ use std::{thread, time};
 
 const ADDR: u16 = 0x48;
 
-fn plot<Tx: DataType, X: IntoIterator<Item = Tx>, Ty: DataType, Y: IntoIterator<Item = Ty>>(times: X, vals: Y) {
+fn plot<Tx: DataType, X: IntoIterator<Item = Tx>, Ty: DataType, Y: IntoIterator<Item = Ty>>(
+    times: X,
+    vals: Y,
+) {
     let mut fg = Figure::new();
     fg.axes2d()
         .set_x_label("time", &[])
