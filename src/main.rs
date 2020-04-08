@@ -1,11 +1,39 @@
 use gnuplot::*;
 use i2cdev::core::*;
 use i2cdev::linux::{LinuxI2CDevice, LinuxI2CError};
-use std::{thread, time};
+use std::{path::PathBuf, thread, time};
+use structopt::StructOpt;
 
-const ADDR: u16 = 0x48;
+#[derive(Debug, StructOpt)]
+#[structopt(name = "fsrpad")]
+struct Opt {
+    /// I2C interface
+    #[structopt(long, default_value = "/dev/i2c-1")]
+    i2c_interface: String,
+
+    /// I2C address
+    #[structopt(long, default_value = "72")]
+    i2c_address: u16,
+
+    /// Print readings
+    #[structopt(short, long)]
+    verbose: bool,
+
+    /// Iterations until exit
+    #[structopt(short, long)]
+    iterations: Option<u64>,
+
+    /// Time between readings
+    #[structopt(short, long, default_value = "10")]
+    period: u64,
+
+    /// File to plot graph
+    #[structopt(short, long, parse(from_os_str))]
+    output: Option<PathBuf>,
+}
 
 fn plot<Tx: DataType, X: IntoIterator<Item = Tx>, Ty: DataType, Y: IntoIterator<Item = Ty>>(
+    path: &PathBuf,
     times: X,
     vals: Y,
 ) {
@@ -14,11 +42,13 @@ fn plot<Tx: DataType, X: IntoIterator<Item = Tx>, Ty: DataType, Y: IntoIterator<
         .set_x_label("time", &[])
         .set_y_label("reading", &[])
         .lines(times, vals, &[]);
-    fg.save_to_png("/tmp/readings.png", 640, 480).unwrap();
+    fg.save_to_png(path, 640, 480).unwrap();
 }
 
 fn main() -> Result<(), LinuxI2CError> {
-    let mut dev = LinuxI2CDevice::new("/dev/i2c-1", ADDR)?;
+    let opts = Opt::from_args();
+
+    let mut dev = LinuxI2CDevice::new(opts.i2c_interface, opts.i2c_address)?;
 
     // http://www.ti.com/lit/ds/symlink/ads1114.pdf
     // [15]: 0 (only useful when sleeping, which we don't use)
@@ -52,8 +82,8 @@ fn main() -> Result<(), LinuxI2CError> {
     let mut times = Vec::new();
     let mut vals = Vec::new();
 
-    let iterations = 500;
-    let rate = time::Duration::from_millis(10);
+    let iterations = opts.iterations.unwrap_or(std::u64::MAX);
+    let period = time::Duration::from_millis(opts.period);
 
     let start = time::Instant::now();
 
@@ -64,11 +94,15 @@ fn main() -> Result<(), LinuxI2CError> {
         times.push(start.elapsed().as_millis() as u64);
         vals.push(actuali);
 
-        println!("Reading: {:?}", actuali);
-        thread::sleep(rate);
+        if opts.verbose {
+            println!("Reading: {:?}", actuali);
+        }
+        thread::sleep(period);
     }
 
-    plot(&times, &vals);
+    if let Some(plot_path) = opts.output {
+        plot(&plot_path, &times, &vals);
+    }
 
     Ok(())
 }

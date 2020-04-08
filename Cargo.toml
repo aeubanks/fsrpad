@@ -6,3 +6,4 @@ edition = "2018"
 [dependencies]
 gnuplot = "0.0.34"
 i2cdev = "0.4"
+structopt = "0.3"
