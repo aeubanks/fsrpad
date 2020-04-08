@@ -5,7 +5,7 @@ use std::{thread, time};
 
 const ADDR: u16 = 0x48;
 
-fn plot(times: &Vec<u64>, vals: &Vec<u16>) {
+fn plot<Tx: DataType, X: IntoIterator<Item = Tx>, Ty: DataType, Y: IntoIterator<Item = Ty>>(times: X, vals: Y) {
     let mut fg = Figure::new();
     fg.axes2d()
         .set_x_label("time", &[])
@@ -44,7 +44,7 @@ fn main() -> Result<(), LinuxI2CError> {
     // [4-0]: comparator stuff (don't care)
     //
     // bit order is weird: [7-0,15-8]
-    dev.smbus_write_word_data(1, 0b111_00000__0_000_000_0)?;
+    dev.smbus_write_word_data(1, 0b111_00000__0_100_011_0)?;
 
     let mut times = Vec::new();
     let mut vals = Vec::new();
@@ -55,11 +55,13 @@ fn main() -> Result<(), LinuxI2CError> {
     let start = time::Instant::now();
 
     for _ in 0..iterations {
-        let response = dev.smbus_read_word_data(0).unwrap();
+        let response = dev.smbus_read_word_data(0).unwrap() as u16;
+        let actualu = response >> 8 | ((response & 0xff) << 8);
+        let actuali = actualu as i16;
         times.push(start.elapsed().as_millis() as u64);
-        vals.push(response);
+        vals.push(actuali);
 
-        println!("Reading: {:?}", response);
+        println!("Reading: {:?}", actuali);
         thread::sleep(rate);
     }
 
