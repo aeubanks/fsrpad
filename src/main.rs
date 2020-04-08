@@ -45,6 +45,10 @@ fn plot<Tx: DataType, X: IntoIterator<Item = Tx>, Ty: DataType, Y: IntoIterator<
     fg.save_to_png(path, 640, 480).unwrap();
 }
 
+fn convert_reading(reading: u16) -> i16 {
+    (reading >> 8 | ((reading & 0xFF) << 8)) as i16
+}
+
 fn main() -> Result<(), LinuxI2CError> {
     let opts = Opt::from_args();
 
@@ -88,14 +92,12 @@ fn main() -> Result<(), LinuxI2CError> {
     let start = time::Instant::now();
 
     for _ in 0..iterations {
-        let response = dev.smbus_read_word_data(0).unwrap() as u16;
-        let actualu = response >> 8 | ((response & 0xff) << 8);
-        let actuali = actualu as i16;
+        let reading = convert_reading(dev.smbus_read_word_data(0).unwrap());
         times.push(start.elapsed().as_millis() as u64);
-        vals.push(actuali);
+        vals.push(reading);
 
         if opts.verbose {
-            println!("Reading: {:?}", actuali);
+            println!("Reading: {:?}", reading);
         }
         thread::sleep(period);
     }
