@@ -42,7 +42,7 @@ fn plot<Tx: DataType, X: IntoIterator<Item = Tx>, Ty: DataType, Y: IntoIterator<
         .set_x_label("time", &[])
         .set_y_label("reading", &[])
         .lines(times, vals, &[]);
-    fg.save_to_png(path, 640, 480).unwrap();
+    fg.save_to_png(path, 1280, 720).unwrap();
 }
 
 fn convert_reading(reading: u16) -> i16 {
@@ -92,7 +92,11 @@ fn main() -> Result<(), LinuxI2CError> {
     let start = time::Instant::now();
 
     for _ in 0..iterations {
-        let reading = convert_reading(dev.smbus_read_word_data(0).unwrap());
+        let raw = match dev.smbus_read_word_data(0) {
+            Ok(r) => r,
+            Err(_) => continue,
+        };
+        let reading = convert_reading(raw);
         times.push(start.elapsed().as_millis() as u64);
         vals.push(reading);
 
