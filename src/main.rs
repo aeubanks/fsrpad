@@ -30,6 +30,10 @@ struct Opt {
     /// File to plot graph
     #[structopt(short, long, parse(from_os_str))]
     output: Option<PathBuf>,
+
+    /// Quit when there is an i2c error
+    #[structopt(short, long)]
+    quit_on_error: bool,
 }
 
 fn plot<Tx: DataType, X: IntoIterator<Item = Tx>, Ty: DataType, Y: IntoIterator<Item = Ty>>(
@@ -47,6 +51,19 @@ fn plot<Tx: DataType, X: IntoIterator<Item = Tx>, Ty: DataType, Y: IntoIterator<
 
 fn convert_reading(reading: u16) -> i16 {
     (reading >> 8 | ((reading & 0xFF) << 8)) as i16
+}
+
+fn read_sensor(dev: &mut LinuxI2CDevice, quit_on_error: bool) -> Option<i16> {
+        let res = dev.smbus_read_word_data(0);
+        let val = if quit_on_error {
+            res.unwrap()
+        } else {
+            match res {
+                Ok(v) => v,
+                Err(_) => return None,
+            }
+        };
+        Some(convert_reading(val))
 }
 
 fn main() -> Result<(), LinuxI2CError> {
@@ -92,18 +109,17 @@ fn main() -> Result<(), LinuxI2CError> {
     let start = time::Instant::now();
 
     for _ in 0..iterations {
-        let raw = match dev.smbus_read_word_data(0) {
-            Ok(r) => r,
-            Err(_) => continue,
+        thread::sleep(period);
+        let reading = match read_sensor(&mut dev, opts.quit_on_error) {
+            Some(r) => r,
+            None => continue,
         };
-        let reading = convert_reading(raw);
         times.push(start.elapsed().as_millis() as u64);
         vals.push(reading);
 
         if opts.verbose {
             println!("Reading: {:?}", reading);
         }
-        thread::sleep(period);
     }
 
     if let Some(plot_path) = opts.output {
