@@ -106,6 +106,9 @@ fn main() -> Result<(), LinuxI2CError> {
 
     for _ in 0..iterations {
         thread::sleep(period);
+        if opts.verbose {
+            println!();
+        }
         for sensor_number in 0..num_sensors {
             let res = read_sensor(&mut dev, sensor_number);
             let reading = match res {
@@ -125,7 +128,7 @@ fn main() -> Result<(), LinuxI2CError> {
             }
 
             if opts.verbose {
-                println!("Reading {}: {:?}", sensor_number, reading);
+                println!("Sensor {}: {:?}", sensor_number, reading);
             }
         }
     }
