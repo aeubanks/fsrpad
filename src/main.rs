@@ -34,6 +34,10 @@ struct Opt {
     /// Quit when there is an i2c error
     #[structopt(short, long)]
     quit_on_error: bool,
+
+    /// Read all four sensors
+    #[structopt(short, long)]
+    all_sensors: bool,
 }
 
 fn plot<Tx: DataType, X: IntoIterator<Item = Tx>, Ty: DataType, Y: IntoIterator<Item = Ty>>(
@@ -49,27 +53,14 @@ fn plot<Tx: DataType, X: IntoIterator<Item = Tx>, Ty: DataType, Y: IntoIterator<
     fg.save_to_png(path, 1280, 720).unwrap();
 }
 
-fn read_sensor(dev: &mut LinuxI2CDevice, quit_on_error: bool) -> Option<i16> {
-    let res = dev.smbus_read_word_data(0);
-    let val = if quit_on_error {
-        res.unwrap()
-    } else {
-        match res {
-            Ok(v) => v,
-            Err(_) => return None,
-        }
-    };
-    Some(val.swap_bytes() as i16)
-}
-
-fn main() -> Result<(), LinuxI2CError> {
-    let opts = Opt::from_args();
-
-    let mut dev = LinuxI2CDevice::new(opts.i2c_interface, opts.i2c_address)?;
+fn read_sensor(dev: &mut LinuxI2CDevice, sensor_number: u16) -> Result<i16, LinuxI2CError> {
+    if sensor_number >= 4 {
+        panic!("sensor_number should be less than 4, got {}", sensor_number);
+    }
 
     // http://www.ti.com/lit/ds/symlink/ads1114.pdf
     // [15]: 0 (only useful when sleeping, which we don't use)
-    // [14-12]: configuring A0-A3, 000 for measuring difference between A0 and A1
+    // [14-12]: configuring A0-A3, 100 for measuring A0
     // [11-9]:
     //   000: +/- 6.144V
     //   001: +/- 4.096V
@@ -92,8 +83,17 @@ fn main() -> Result<(), LinuxI2CError> {
     //   110: 475
     //   111: 860
     // [4-0]: comparator stuff (don't care)
-    let config: u16 = 0b0_100_001_0__111_00000;
+    let config: u16 = 0b0_100_001_0__111_00000 | (sensor_number << 12);
     dev.smbus_write_word_data(1, config.swap_bytes())?;
+
+    let res = dev.smbus_read_word_data(0)?;
+    Ok(res.swap_bytes() as i16)
+}
+
+fn main() -> Result<(), LinuxI2CError> {
+    let opts = Opt::from_args();
+
+    let mut dev = LinuxI2CDevice::new(opts.i2c_interface, opts.i2c_address)?;
 
     let mut times = Vec::new();
     let mut vals = Vec::new();
@@ -102,18 +102,31 @@ fn main() -> Result<(), LinuxI2CError> {
     let period = time::Duration::from_millis(opts.period);
 
     let start = time::Instant::now();
+    let num_sensors = if opts.all_sensors { 4 } else { 1 };
 
     for _ in 0..iterations {
         thread::sleep(period);
-        let reading = match read_sensor(&mut dev, opts.quit_on_error) {
-            Some(r) => r,
-            None => continue,
-        };
-        times.push(start.elapsed().as_millis() as u64);
-        vals.push(reading);
+        for sensor_number in 0..num_sensors {
+            let res = read_sensor(&mut dev, sensor_number);
+            let reading = match res {
+                Ok(r) => r,
+                Err(e) => {
+                    if opts.quit_on_error {
+                        return Err(e);
+                    } else {
+                        continue;
+                    }
+                }
+            };
 
-        if opts.verbose {
-            println!("Reading: {:?}", reading);
+            if sensor_number == 0 && opts.output != None {
+                times.push(start.elapsed().as_millis() as u64);
+                vals.push(reading);
+            }
+
+            if opts.verbose {
+                println!("Reading {}: {:?}", sensor_number, reading);
+            }
         }
     }
 
