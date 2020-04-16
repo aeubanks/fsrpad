@@ -1,6 +1,7 @@
+mod i2c;
+
 use gnuplot::*;
-use i2cdev::core::*;
-use i2cdev::linux::{LinuxI2CDevice, LinuxI2CError};
+use i2c::{I2CDev, I2CError};
 use std::{path::PathBuf, thread, time};
 use structopt::StructOpt;
 
@@ -53,7 +54,7 @@ fn plot<Tx: DataType, X: IntoIterator<Item = Tx>, Ty: DataType, Y: IntoIterator<
     fg.save_to_png(path, 1280, 720).unwrap();
 }
 
-fn read_sensor(dev: &mut LinuxI2CDevice, sensor_number: u16) -> Result<i16, LinuxI2CError> {
+fn read_sensor(dev: &mut I2CDev, sensor_number: u16) -> Result<i16, I2CError> {
     if sensor_number >= 4 {
         panic!("sensor_number should be less than 4, got {}", sensor_number);
     }
@@ -84,16 +85,15 @@ fn read_sensor(dev: &mut LinuxI2CDevice, sensor_number: u16) -> Result<i16, Linu
     //   111: 860
     // [4-0]: comparator stuff (don't care)
     let config: u16 = 0b0_100_001_0__111_00000 | (sensor_number << 12);
-    dev.smbus_write_word_data(1, config.swap_bytes())?;
+    dev.write_u16(1, config)?;
 
-    let res = dev.smbus_read_word_data(0)?;
-    Ok(res.swap_bytes() as i16)
+    dev.read_i16(0)
 }
 
-fn main() -> Result<(), LinuxI2CError> {
+fn main() -> Result<(), I2CError> {
     let opts = Opt::from_args();
 
-    let mut dev = LinuxI2CDevice::new(opts.i2c_interface, opts.i2c_address)?;
+    let mut dev = I2CDev::new(&opts.i2c_interface, opts.i2c_address)?;
 
     let mut times = Vec::new();
     let mut vals = Vec::new();
