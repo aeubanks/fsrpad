@@ -59,7 +59,7 @@ fn read_sensor(dev: &mut LinuxI2CDevice, quit_on_error: bool) -> Option<i16> {
                 Err(_) => return None,
             }
         };
-        Some(u16::from_le(val) as i16)
+        Some(val.swap_bytes() as i16)
 }
 
 fn main() -> Result<(), LinuxI2CError> {
@@ -92,8 +92,8 @@ fn main() -> Result<(), LinuxI2CError> {
     //   110: 475
     //   111: 860
     // [4-0]: comparator stuff (don't care)
-    let config: u16 = 0b0_100_000_0__111_00000;
-    dev.smbus_write_word_data(1, config.to_le())?;
+    let config: u16 = 0b0_100_001_0__111_00000;
+    dev.smbus_write_word_data(1, config.swap_bytes())?;
 
     let mut times = Vec::new();
     let mut vals = Vec::new();
