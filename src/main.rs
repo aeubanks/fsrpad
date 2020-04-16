@@ -50,16 +50,16 @@ fn plot<Tx: DataType, X: IntoIterator<Item = Tx>, Ty: DataType, Y: IntoIterator<
 }
 
 fn read_sensor(dev: &mut LinuxI2CDevice, quit_on_error: bool) -> Option<i16> {
-        let res = dev.smbus_read_word_data(0);
-        let val = if quit_on_error {
-            res.unwrap()
-        } else {
-            match res {
-                Ok(v) => v,
-                Err(_) => return None,
-            }
-        };
-        Some(val.swap_bytes() as i16)
+    let res = dev.smbus_read_word_data(0);
+    let val = if quit_on_error {
+        res.unwrap()
+    } else {
+        match res {
+            Ok(v) => v,
+            Err(_) => return None,
+        }
+    };
+    Some(val.swap_bytes() as i16)
 }
 
 fn main() -> Result<(), LinuxI2CError> {
