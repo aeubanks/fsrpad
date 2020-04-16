@@ -49,10 +49,6 @@ fn plot<Tx: DataType, X: IntoIterator<Item = Tx>, Ty: DataType, Y: IntoIterator<
     fg.save_to_png(path, 1280, 720).unwrap();
 }
 
-fn convert_reading(reading: u16) -> i16 {
-    (reading >> 8 | ((reading & 0xFF) << 8)) as i16
-}
-
 fn read_sensor(dev: &mut LinuxI2CDevice, quit_on_error: bool) -> Option<i16> {
         let res = dev.smbus_read_word_data(0);
         let val = if quit_on_error {
@@ -63,7 +59,7 @@ fn read_sensor(dev: &mut LinuxI2CDevice, quit_on_error: bool) -> Option<i16> {
                 Err(_) => return None,
             }
         };
-        Some(convert_reading(val))
+        Some(u16::from_le(val) as i16)
 }
 
 fn main() -> Result<(), LinuxI2CError> {
@@ -96,9 +92,8 @@ fn main() -> Result<(), LinuxI2CError> {
     //   110: 475
     //   111: 860
     // [4-0]: comparator stuff (don't care)
-    //
-    // bit order is weird: [7-0,15-8]
-    dev.smbus_write_word_data(1, 0b111_00000__0_100_011_0)?;
+    let config: u16 = 0b0_100_000_0__111_00000;
+    dev.smbus_write_word_data(1, config.to_le())?;
 
     let mut times = Vec::new();
     let mut vals = Vec::new();
