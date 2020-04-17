@@ -39,6 +39,19 @@ struct Opt {
     /// Read all four sensors
     #[structopt(short, long)]
     all_sensors: bool,
+
+    /// Number of iterations before reading stable value
+    /// Ignored if --thresholds is set
+    #[structopt(short, long, default_value = "100")]
+    warmup_iterations: u64,
+
+    /// Added to stable value to calculate threshold
+    /// Ignored if --thresholds is set
+    warmup_threshold_offset: i32,
+
+    /// Threshold for each sensor
+    #[structopt(long)]
+    threshold: Option<i32>,
 }
 
 fn plot<Tx: DataType, X: IntoIterator<Item = Tx>, Ty: DataType, Y: IntoIterator<Item = Ty>>(
@@ -54,7 +67,7 @@ fn plot<Tx: DataType, X: IntoIterator<Item = Tx>, Ty: DataType, Y: IntoIterator<
     fg.save_to_png(path, 1280, 720).unwrap();
 }
 
-fn read_sensor(dev: &mut I2CDev, sensor_number: u16) -> Result<i16, I2CError> {
+fn read_sensor(dev: &mut I2CDev, sensor_number: usize) -> Result<i16, I2CError> {
     if sensor_number >= 4 {
         panic!("sensor_number should be less than 4, got {}", sensor_number);
     }
@@ -84,7 +97,7 @@ fn read_sensor(dev: &mut I2CDev, sensor_number: u16) -> Result<i16, I2CError> {
     //   110: 475
     //   111: 860
     // [4-0]: comparator stuff (don't care)
-    let config: u16 = 0b0_100_001_0__111_00000 | (sensor_number << 12);
+    let config: u16 = 0b0_100_001_0__111_00000 | ((sensor_number as u16) << 12);
     dev.write_u16(1, config)?;
 
     dev.read_i16(0)
@@ -103,8 +116,9 @@ fn main() -> Result<(), I2CError> {
 
     let start = time::Instant::now();
     let num_sensors = if opts.all_sensors { 4 } else { 1 };
+    let mut thresholds = vec![opts.threshold; num_sensors as usize];
 
-    for _ in 0..iterations {
+    for i in 0..iterations {
         thread::sleep(period);
         if opts.verbose {
             println!();
@@ -129,6 +143,21 @@ fn main() -> Result<(), I2CError> {
 
             if opts.verbose {
                 println!("Sensor {}: {:?}", sensor_number, reading);
+            }
+
+            if let Some(threshold) = thresholds[sensor_number] {
+                if opts.verbose {
+                    println!(
+                        "{}",
+                        if reading as i32 > threshold {
+                            "On"
+                        } else {
+                            "Off"
+                        }
+                    );
+                }
+            } else if i == opts.warmup_iterations {
+                thresholds[sensor_number] = Some(reading as i32 + opts.warmup_threshold_offset)
             }
         }
     }
