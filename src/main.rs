@@ -2,7 +2,12 @@ mod i2c;
 
 use gnuplot::*;
 use i2c::{I2CDev, I2CError};
-use std::{path::PathBuf, thread, time};
+use std::io::{Read, Write};
+use std::net::TcpListener;
+use std::path::PathBuf;
+use std::sync::atomic::{AtomicI16, Ordering};
+use std::thread;
+use std::time;
 use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
@@ -53,6 +58,10 @@ struct Opt {
     /// Threshold for each sensor
     #[structopt(long)]
     threshold: Option<i32>,
+
+    /// Port to listen on
+    #[structopt(short, long)]
+    port: Option<u16>,
 }
 
 fn plot<Tx: DataType, X: IntoIterator<Item = Tx>, Ty: DataType, Y: IntoIterator<Item = Ty>>(
@@ -104,8 +113,26 @@ fn read_sensor(dev: &mut I2CDev, sensor_number: usize) -> Result<i16, I2CError> 
     dev.read_i16(0)
 }
 
+static LATEST_VALUE: AtomicI16 = AtomicI16::new(0);
+
+fn server(port: u16) -> std::io::Result<()> {
+    let listener = TcpListener::bind(("0.0.0.0", port))?;
+
+    for stream in listener.incoming() {
+        let mut stream = stream?;
+        stream.read(&mut [0; 1])?;
+        let val = LATEST_VALUE.load(Ordering::Relaxed);
+        stream.write(&val.to_be_bytes())?;
+    }
+    Ok(())
+}
+
 fn main() -> Result<(), I2CError> {
     let opts = Opt::from_args();
+
+    if let Some(port) = opts.port {
+        thread::spawn(move || server(port));
+    }
 
     let mut dev = I2CDev::new(&opts.i2c_interface, opts.i2c_address)?;
 
@@ -140,6 +167,10 @@ fn main() -> Result<(), I2CError> {
             if sensor_number == 0 && opts.output != None {
                 times.push(start.elapsed().as_millis() as u64);
                 vals.push(reading);
+            }
+
+            if sensor_number == 0 {
+                LATEST_VALUE.store(reading, Ordering::Relaxed);
             }
 
             if opts.verbose {
