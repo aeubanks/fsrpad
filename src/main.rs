@@ -26,7 +26,7 @@ struct Opt {
 
     /// Time between readings
     #[structopt(short, long, default_value = "10")]
-    period: u64,
+    read_period: u64,
 
     /// File to plot graph
     #[structopt(short, long, parse(from_os_str))]
@@ -47,6 +47,7 @@ struct Opt {
 
     /// Added to stable value to calculate threshold
     /// Ignored if --thresholds is set
+    #[structopt(long, default_value = "1000")]
     warmup_threshold_offset: i32,
 
     /// Threshold for each sensor
@@ -112,14 +113,14 @@ fn main() -> Result<(), I2CError> {
     let mut vals = Vec::new();
 
     let iterations = opts.iterations.unwrap_or(std::u64::MAX);
-    let period = time::Duration::from_millis(opts.period);
+    let read_period = time::Duration::from_millis(opts.read_period);
 
     let start = time::Instant::now();
     let num_sensors = if opts.all_sensors { 4 } else { 1 };
     let mut thresholds = vec![opts.threshold; num_sensors as usize];
 
     for i in 0..iterations {
-        thread::sleep(period);
+        thread::sleep(read_period);
         if opts.verbose {
             println!();
         }
