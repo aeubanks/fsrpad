@@ -5,7 +5,7 @@ use i2c::{I2CDev, I2CError};
 use std::io::{Read, Write};
 use std::net::TcpListener;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicI16, Ordering};
+use std::sync::atomic::{AtomicU8, Ordering};
 use std::thread;
 use std::time;
 use structopt::StructOpt;
@@ -117,7 +117,7 @@ fn read_sensor(dev: &mut I2CDev, sensor_number: usize) -> Result<i16, I2CError> 
     dev.read_i16(0)
 }
 
-static LATEST_VALUE: AtomicI16 = AtomicI16::new(0);
+static LATEST_VALUE: AtomicU8 = AtomicU8::new(0);
 
 fn server(port: u16) -> std::io::Result<()> {
     let listener = TcpListener::bind(("0.0.0.0", port))?;
@@ -126,9 +126,19 @@ fn server(port: u16) -> std::io::Result<()> {
         let mut stream = stream?;
         stream.read(&mut [0; 1])?;
         let val = LATEST_VALUE.load(Ordering::Relaxed);
-        stream.write(&val.to_be_bytes())?;
+        stream.write(&[val])?;
     }
     Ok(())
+}
+
+fn states_to_byte(states: &Vec<bool>) -> u8 {
+    let mut ret = 0;
+    for (i, state) in states.iter().enumerate() {
+        if *state {
+            ret |= 1 << i;
+        }
+    }
+    ret
 }
 
 fn main() -> Result<(), I2CError> {
@@ -174,10 +184,6 @@ fn main() -> Result<(), I2CError> {
                 vals.push(reading);
             }
 
-            if sensor_number == 0 {
-                LATEST_VALUE.store(reading, Ordering::Relaxed);
-            }
-
             if opts.verbose {
                 println!("Sensor {}: {:?}", sensor_number, reading);
             }
@@ -193,6 +199,7 @@ fn main() -> Result<(), I2CError> {
                 thresholds[sensor_number] = Some(reading as i32 + opts.warmup_threshold_offset)
             }
         }
+        LATEST_VALUE.store(states_to_byte(&states), Ordering::Relaxed);
     }
 
     if let Some(plot_path) = opts.output {
