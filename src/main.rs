@@ -62,6 +62,10 @@ struct Opt {
     /// Port to listen on
     #[structopt(short, long)]
     port: Option<u16>,
+
+    /// Offset from stable required to change state
+    #[structopt(short, long, default_value = "10")]
+    debounce: i32,
 }
 
 fn plot<Tx: DataType, X: IntoIterator<Item = Tx>, Ty: DataType, Y: IntoIterator<Item = Ty>>(
@@ -145,6 +149,7 @@ fn main() -> Result<(), I2CError> {
     let start = time::Instant::now();
     let num_sensors = if opts.all_sensors { 4 } else { 1 };
     let mut thresholds = vec![opts.threshold; num_sensors as usize];
+    let mut states = vec![false; num_sensors as usize];
 
     for i in 0..iterations {
         thread::sleep(read_period);
@@ -178,15 +183,11 @@ fn main() -> Result<(), I2CError> {
             }
 
             if let Some(threshold) = thresholds[sensor_number] {
+                states[sensor_number] = (reading as i32)
+                    > (threshold + opts.debounce * (if states[sensor_number] { -1 } else { 1 }));
+
                 if opts.verbose {
-                    println!(
-                        "{}",
-                        if reading as i32 > threshold {
-                            "On"
-                        } else {
-                            "Off"
-                        }
-                    );
+                    println!("{}", if states[sensor_number] { "On" } else { "Off" });
                 }
             } else if i == opts.warmup_iterations {
                 thresholds[sensor_number] = Some(reading as i32 + opts.warmup_threshold_offset)
