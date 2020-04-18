@@ -3,6 +3,9 @@ name = "fsrpad"
 version = "0.1.0"
 edition = "2018"
 
+[[bin]]
+name = "client"
+
 [dependencies]
 gnuplot = "0.0.34"
 i2cdev = "0.4"
