@@ -3,7 +3,7 @@ mod i2c;
 use gnuplot::*;
 use i2c::{I2CDev, I2CError};
 use std::io::{Read, Write};
-use std::net::TcpListener;
+use std::net::{TcpListener, TcpStream};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU8, Ordering};
 use std::thread;
@@ -119,14 +119,20 @@ fn read_sensor(dev: &mut I2CDev, sensor_number: usize) -> Result<i16, I2CError> 
 
 static LATEST_VALUE: AtomicU8 = AtomicU8::new(0);
 
+fn handle_connection(stream: &mut TcpStream) -> std::io::Result<()> {
+    loop {
+        stream.read(&mut [0; 1])?;
+        let val = LATEST_VALUE.load(Ordering::Relaxed);
+        stream.write(&[val])?;
+    }
+}
+
 fn server(port: u16) -> std::io::Result<()> {
     let listener = TcpListener::bind(("0.0.0.0", port))?;
 
     for stream in listener.incoming() {
         let mut stream = stream?;
-        stream.read(&mut [0; 1])?;
-        let val = LATEST_VALUE.load(Ordering::Relaxed);
-        stream.write(&[val])?;
+        let _ = handle_connection(&mut stream);
     }
     Ok(())
 }
