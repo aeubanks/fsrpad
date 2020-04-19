@@ -41,10 +41,6 @@ struct Opt {
     #[structopt(short, long)]
     quit_on_error: bool,
 
-    /// Read all four sensors
-    #[structopt(short, long)]
-    all_sensors: bool,
-
     /// Number of iterations before reading stable value
     /// Ignored if --thresholds is set
     #[structopt(short, long, default_value = "100")]
@@ -163,7 +159,7 @@ fn main() -> Result<(), I2CError> {
     let read_period = time::Duration::from_millis(opts.read_period);
 
     let start = time::Instant::now();
-    let num_sensors = if opts.all_sensors { 4 } else { 1 };
+    let num_sensors = 4;
     let mut thresholds = vec![opts.threshold; num_sensors as usize];
     let mut states = vec![false; num_sensors as usize];
 
