@@ -14,6 +14,9 @@ struct Opt {
 
     #[structopt(short, long)]
     verbose: bool,
+
+    #[structopt(short, long)]
+    wait_duration: u64,
 }
 
 fn sextext_from_reading(reading: u8) -> u8 {
@@ -27,7 +30,9 @@ fn main() -> std::io::Result<()> {
         .write(true)
         .open(opts.file)
         .unwrap();
+    let wait_duration = std::time::Duration::from_millis(opts.wait_duration);
     loop {
+        std::thread::sleep(wait_duration);
         let start = std::time::Instant::now();
         stream.write(&[0]).unwrap();
         let mut res = [0];
