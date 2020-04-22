@@ -52,8 +52,8 @@ struct Opt {
     warmup_threshold_offset: i32,
 
     /// Threshold for each sensor
-    #[structopt(long)]
-    threshold: Option<i32>,
+    #[structopt(short, long, value_delimiter = ",")]
+    thresholds: Option<Vec<i32>>,
 
     /// Port to listen on
     #[structopt(short, long)]
@@ -160,7 +160,12 @@ fn main() -> Result<(), I2CError> {
 
     let start = time::Instant::now();
     let num_sensors = 4;
-    let mut thresholds = vec![opts.threshold; num_sensors as usize];
+    let mut thresholds = vec![None; num_sensors as usize];
+    if let Some(ts) = opts.thresholds {
+        for (i, t) in ts.iter().enumerate() {
+            thresholds[i] = Some(*t);
+        }
+    }
     let mut states = vec![false; num_sensors as usize];
 
     for i in 0..iterations {
