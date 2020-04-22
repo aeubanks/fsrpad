@@ -17,6 +17,9 @@ struct Opt {
 
     #[structopt(short, long)]
     wait_duration: u64,
+
+    #[structopt(short, long)]
+    quit_on_error: bool,
 }
 
 fn sextext_from_reading(reading: u8) -> u8 {
@@ -37,7 +40,10 @@ fn main() -> std::io::Result<()> {
         stream.write(&[0]).unwrap();
         let mut res = [0];
         stream.read(&mut res).unwrap();
-        fd.write(&[sextext_from_reading(res[0]), 0x0A]).unwrap();
+        let write = fd.write(&[sextext_from_reading(res[0]), 0x0A]);
+        if opts.quit_on_error {
+            let _ = write.unwrap();
+        }
         if opts.verbose {
             println!("{:07?} microseconds", start.elapsed().as_micros());
         }
