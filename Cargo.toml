@@ -10,4 +10,8 @@ name = "client"
 [dependencies]
 gnuplot = "0.0.34"
 i2cdev = "0.4"
-structopt = "0.3"
+
+[dependencies.clap]
+version = "3.0.0-beta.1"
+default-features = false
+features = ["std", "derive"]

@@ -1,5 +1,6 @@
 mod i2c;
 
+use clap::Clap;
 use gnuplot::*;
 use i2c::{I2CDev, I2CError};
 use std::io::{Read, Write};
@@ -8,59 +9,58 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicU8, Ordering};
 use std::thread;
 use std::time;
-use structopt::StructOpt;
 
-#[derive(Debug, StructOpt)]
-#[structopt(name = "fsrpad")]
+#[derive(Debug, Clap)]
+#[clap(name = "fsrpad")]
 struct Opt {
     /// I2C interface
-    #[structopt(long, default_value = "/dev/i2c-1")]
+    #[clap(long, default_value = "/dev/i2c-1")]
     i2c_interface: String,
 
     /// I2C address
-    #[structopt(long, default_value = "72")]
+    #[clap(long, default_value = "72")]
     i2c_address: u16,
 
     /// Print readings
-    #[structopt(short, long)]
+    #[clap(short, long)]
     verbose: bool,
 
     /// Iterations until exit
-    #[structopt(short, long)]
+    #[clap(short, long)]
     iterations: Option<u64>,
 
     /// Time between readings
-    #[structopt(short, long, default_value = "10")]
+    #[clap(short, long, default_value = "10")]
     read_period: u64,
 
     /// File to plot graph
-    #[structopt(short, long, parse(from_os_str))]
+    #[clap(short, long, parse(from_os_str))]
     output: Option<PathBuf>,
 
     /// Quit when there is an i2c error
-    #[structopt(short, long)]
+    #[clap(short, long)]
     quit_on_error: bool,
 
     /// Number of iterations before reading stable value
     /// Ignored if --thresholds is set
-    #[structopt(short, long, default_value = "100")]
+    #[clap(short, long, default_value = "100")]
     warmup_iterations: u64,
 
     /// Added to stable value to calculate threshold
     /// Ignored if --thresholds is set
-    #[structopt(long, default_value = "1000")]
+    #[clap(long, default_value = "1000")]
     warmup_threshold_offset: i32,
 
     /// Threshold for each sensor
-    #[structopt(short, long, value_delimiter = ",")]
+    #[clap(short, long, value_delimiter = ",")]
     thresholds: Option<Vec<i32>>,
 
     /// Port to listen on
-    #[structopt(short, long)]
+    #[clap(short, long)]
     port: Option<u16>,
 
     /// Offset from stable required to change state
-    #[structopt(short, long, default_value = "10")]
+    #[clap(short, long, default_value = "10")]
     debounce: i32,
 }
 
@@ -144,7 +144,7 @@ fn states_to_byte(states: &Vec<bool>) -> u8 {
 }
 
 fn main() -> Result<(), I2CError> {
-    let opts = Opt::from_args();
+    let opts = Opt::parse();
 
     if let Some(port) = opts.port {
         thread::spawn(move || server(port));
